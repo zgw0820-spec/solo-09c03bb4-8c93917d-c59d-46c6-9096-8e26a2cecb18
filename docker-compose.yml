@@ -1,0 +1,24 @@
+name: incremental-net-minimizer
+
+services:
+  minimizer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: incremental-net-minimizer:local
+    ports:
+      - "8000:8000"
+    environment:
+      # 单条 SQL 超过 1 秒即判定为“无法判定”（任务硬性要求，不建议调大）
+      STATEMENT_TIMEOUT_SECONDS: "1.0"
+      MAX_RESULT_ROWS: "10000"
+      MAX_TRIALS: "400"
+      MAX_REQUEST_SECONDS: "120"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped

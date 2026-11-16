@@ -1,0 +1,58 @@
+{
+  "initial": {
+    "orders": [
+      {"order_id": 1001, "amount": 5000},
+      {"order_id": 1002, "amount": 3000}
+    ],
+    "refunds": [
+      {"refund_id": 9001, "order_id": 1001, "amount": 1200}
+    ]
+  },
+  "batches": [
+    {
+      "batch_id": 101,
+      "changes": [
+        {"op": "insert", "table": "refunds",
+         "after": {"refund_id": 9002, "order_id": 1001, "amount": 500}}
+      ]
+    },
+    {
+      "batch_id": 102,
+      "changes": [
+        {"op": "insert", "table": "orders",
+         "after": {"order_id": 1003, "amount": 800}}
+      ]
+    },
+    {
+      "batch_id": 103,
+      "changes": [
+        {"op": "delete", "table": "refunds", "before": {"refund_id": 9002}}
+      ]
+    },
+    {
+      "batch_id": 104,
+      "changes": [
+        {"op": "insert", "table": "refunds",
+         "after": {"refund_id": 9003, "order_id": 1002, "amount": 300}}
+      ]
+    },
+    {
+      "batch_id": 105,
+      "changes": [
+        {"op": "delete", "table": "orders", "before": {"order_id": 1003}}
+      ]
+    },
+    {
+      "batch_id": 106,
+      "changes": [
+        {"op": "update", "table": "orders",
+         "before": {"order_id": 1001},
+         "after": {"order_id": 1001, "amount": 6000}}
+      ]
+    }
+  ],
+  "sql": {
+    "full_select": "SELECT o.order_id, o.amount - COALESCE(SUM(r.amount), 0) AS net_amount FROM orders o LEFT JOIN refunds r ON r.order_id = o.order_id GROUP BY o.order_id, o.amount",
+    "incremental": "INSERT INTO result(order_id, net_amount) SELECT new_order_id, new_amount FROM batch_changes WHERE tbl = 'orders' AND op = 'insert';\nUPDATE result SET net_amount = net_amount + b.delta FROM (SELECT old_order_id AS oid, new_amount - old_amount AS delta FROM batch_changes WHERE tbl = 'orders' AND op = 'update') AS b WHERE result.order_id = b.oid;\nDELETE FROM result WHERE order_id IN (SELECT old_order_id FROM batch_changes WHERE tbl = 'orders' AND op = 'delete');\nUPDATE result SET net_amount = result.net_amount - b.amt FROM (SELECT new_refund_order_id AS oid, SUM(new_refund_amount) AS amt FROM batch_changes WHERE tbl = 'refunds' AND op = 'insert' GROUP BY new_refund_order_id) AS b WHERE result.order_id = b.oid;\n"
+  }
+}
